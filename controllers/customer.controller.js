@@ -133,28 +133,45 @@ exports.deleteCustomer = async (req, res) => {
   }
 }
 
-// Remove a card UID from a customer
+// Remove a card UID from a customer and add a rechargeHistory entry
 exports.removeCardUid = async (req, res) => {
   try {
-    const { cardUid } = req.body
+    const { cardUid } = req.body;
+    const userId = req.user.userId; // Assuming the user's ID is available in req.user
+    const userName = req.user.name; // Assuming the user's name is available in req.user
+
+    const customer = await Customer.findOne({ cardUid });
+    if (!customer) {
+      return res.status(404).json({ message: 'This card doesn"t belong to a customer' });
+    }
+
+    // Prepare the rechargeHistory entry with amount 0
+    const rechargeHistoryEntry = {
+      rechargerName: userName,
+      rechargerId: userId,
+      amount: 0,
+      balanceBeforeRecharge: customer.moneyLeft,
+      date: new Date(),
+    };
+
+    // Update the customer: remove card UID, set money left to 0, and add rechargeHistory entry
     const updatedCustomer = await Customer.findOneAndUpdate(
       { cardUid },
       {
         $unset: { cardUid: '' },
         $set: { moneyLeft: 0 },
+        $push: { rechargeHistory: rechargeHistoryEntry },
       },
       { new: true }
-    )
+    );
 
-    if (!updatedCustomer) {
-      return res.status(404).json({ message: 'This card doesnt belong to a customer' })
-    }
-
-    return res.json({ message: 'customer Card removed successfully', data: updatedCustomer })
+    return res.json({ message: 'Card removed and rechargeHistory updated successfully', data: updatedCustomer });
   } catch (error) {
-    return res.status(500).json({ message: 'There was an error while removing the card, please try again', error: error.message })
+    return res.status(500).json({ message: 'There was an error while removing the card, please try again', error: error.message });
   }
-}
+};
+
+
 
 // Get a single customer by card UID or phone number
 exports.getCustomerByCardUidOrPhone = async (req, res) => {
@@ -184,3 +201,28 @@ exports.addCardToCustomerByPhone = async (req, res) => {
     return res.status(500).json({ message: 'There was an error while adding the new card, please try again', error: error.message })
   }
 }
+
+
+/*
+exports.removeCardUid = async (req, res) => {
+  try {
+    const { cardUid } = req.body
+    const updatedCustomer = await Customer.findOneAndUpdate(
+      { cardUid },
+      {
+        $unset: { cardUid: '' },
+        $set: { moneyLeft: 0 },
+      },
+      { new: true }
+    )
+
+    if (!updatedCustomer) {
+      return res.status(404).json({ message: 'This card doesnt belong to a customer' })
+    }
+
+    return res.json({ message: 'customer Card removed successfully', data: updatedCustomer })
+  } catch (error) {
+    return res.status(500).json({ message: 'There was an error while removing the card, please try again', error: error.message })
+  }
+}
+*/
